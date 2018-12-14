@@ -50,12 +50,17 @@ void stif_free(stif_t *s){
  * \return the newly allocated block (to be freed with stif_block_free) or NULL on error
  */
 stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, size_t *bytes_read){
-    buffer = NULL;
-    buffer ++ ;
-    buffer_size = 0;
-    buffer_size ++;
-    bytes_read = 0;
-    bytes_read ++;
+    // >> READ DATA'S BLOCK HEADER <<
+        /*
+            vérif que c'est un type data : byte == 1
+            vérif que la block size correspond bien à RGB si image RGB ou GS si image GS
+        */
+
+
+
+    // >> READ DATA'S BLOCK DATA <<
+
+
     return NULL;
 }
 
@@ -70,6 +75,8 @@ stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, s
  *
  * \return the parsed image (to be freed with stif_free) or NULL on error
  */
+
+//TODO revoir tous les pointeurs sur buffer de i. J'ai fait nimp, au lieu de mettre des * j'ai mis des &. Et j'ai fait buffer[i] et non buffer + i 
 stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     // PARSE MAGIC NUMBER : CA FE
     if(buffer_size < 22){ /* 22 = PLUS PETITE IMAGE POSSIBLE = 2o (magic) + 5o (header_block) + 9o (block head) + 5(header_block) + 1(block_gray_scale)*/
@@ -81,7 +88,7 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     stif_t *res;
     stif_header_t *header;
     int32_t block_size;
-    int index = 2;
+    int i = 2; // index du buffer
 
 
 
@@ -96,6 +103,7 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
         return NULL;
     }
     i += 4; // i=7
+
     // >> contenu du block header <<
     if( &(int32_t *)buffer[i]) < 0 ){ // check Width positive
         return NULL;
@@ -106,32 +114,40 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     if( &(int8_t *)buffer[i+8]) != 0 && &(int8_t *)buffer[i+8]) != 1 ){ // check type d'image == rgb ou grayscale
         return NULL;
     }
+    // L'expression correspond au color_type. Si on est en rgb alors les pixels feront 8o (5o header + 3o data_rgb), autrement ils feront 5 px (5o header + 1o data_gs)
+    int8_t pixel_block_size = (&(int32_t *)buffer[i+8]) ? 5 + 3 : 5 + 1; // Si on a color_type (==1) alors on a du rgb, donc chaque futur bloc fera 5o(header)+3o(rgb). sinon 5o(header)+1o(gs)
+    /* On passe le HEADER (9o) et i , et on vérifie que le nombre d'octet restant est modulo la taille suposée des blocks de pixels.
+       e.g. si buffer_size - i - 9 == 32, alors on peut caser 4 pixels si on est en rgb car 32%8 == 0.
+       Mais si on est en mode gs , on peut caser que 5.33 pixels, car 32%6 == 2
+    */
+    if( ((buffer_size - i - 9) % pixel_block_size) != 0){
+        return NULL;
+    }
     // header correct, on peut initialiser l'image
     stif_header_t *header = malloc(sizeof(stif_header_t));
     header -> width = &(int32_t *)buffer[i];
     header -> height = &(int32_t *)buffer[i+4]; // On passe la width
     int8_t color_type = &(int32_t *)buffer[i+8]; // on passe la width et la height
     header -> color_type = color_type;
-    i += 9;
 
+    i += 9; // i=16
+
+    // On a fait la vérif qu'il y avait des datas blocks après, on commence donc à les allouer
+    stif_block_t *current_data_block = malloc(sizeof(stif_block_t));
     stif_t * res = malloc(sizeof(stif_t));
     res -> header = header;
     res -> grayscale_pixels = NULL;
     res -> rgb_pixels = NULL;
-    res -> block_head = NULL;
-    // TODO vérif qu'il reste le bon nombre d'octets conformément à la taille supposée des blocs (RGB ou gray)
+    res -> block_head = current_data_block; //TODO ne pas oublier de link la chaine
 
+//  >>> READ BLOCKS DATA <<<
 
-    // READ BLOCKS DATA
+    size_t bytes_read;
+    while(buffer_size - i > 0){
+        stif_block_t * = read_stif_block(buffer + i,  pixel_block_size, &bytes_read){
+        i+= pixel_block_size;
+    }
 
-
-    /*
-    while buffer not ended :
-        // LIRE LE HEADER DU BLOCK
-                vérif que c'est un type data : byte == 1
-                vérif que la block size correspond bien à RGB si image RGB ou GS si image GS
-        // LIRE LES DATAS DU BLOCK
-    */
 
     return NULL;
 }
