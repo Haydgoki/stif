@@ -6,11 +6,11 @@
 #define VERBOSE 0
 
 /* Buffer to int. With a buffer which contains little endian numbers. return an int from it*/
-int32_t _btoi(const unsigned char* b){int32_t res = b[0]<<24 | b[1]<<16 | b[2]<<8 | b[3]; return res;}
+int32_t _btoi(const unsigned char* b){ return *((int32_t *)b);}
 
 void stif_block_free(stif_block_t *b){
-    #if DEBUG == 1
-    printf("D : >> Entering stif_block_free\n");
+    #if VERBOSE == 1
+    printf("V : >> Entering stif_block_free\n");
     #endif
     if(b != NULL){
         free(b -> data); /*TODO Check if data not null*/
@@ -19,8 +19,8 @@ void stif_block_free(stif_block_t *b){
 }
 
 void stif_free(stif_t *s){
-    #if DEBUG == 1
-    printf("D : >> Entering stif_free\n");
+    #if VERBOSE == 1
+    printf("V : >> Entering stif_free\n");
     #endif
     // TODO vérif que s not NULL
     if( s == NULL ){
@@ -44,107 +44,107 @@ void stif_free(stif_t *s){
     free(s);
 }
 
-stif_block_t *read_stif_block_data(const unsigned char *buffer, size_t buffer_size, size_t *bytes_read){
-    #if DEBUG == 1
-    printf("D : >> Entering read_stif_block_data\n");
+stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, size_t *bytes_read){
+    #if VERBOSE == 1
+    printf("V : >> Entering read_stif_block\n");
     #endif
     // >> READ DATA'S BLOCK HEADER <<
-    (* bytes_read) = 1;
-    if(buffer[0] != 1){ // On s'attend forcément à un type data
+    (* bytes_read) = 0;
+    if(buffer_size<5){
+        perror("ERROR : Moins de 5 octets dans le BUFFER pour un nouveau block de datas\n");
         return NULL;
     }
-    int i = 1;
+    if(buffer[0] != 1){ // On s'attend forcément à un type data
+        (* bytes_read) = 1;
+        fprintf(stderr, "ERROR : BlockTypeERROR : Nouveau block type != DATA %x\n", buffer[0]);
+        return NULL;
+    }
+    int32_t i = 1;
     int32_t data_size = _btoi(buffer + i);
-    if( buffer_size - data_size != 5){ // Si la taille du buffer qu'on lui envoie ne correspond pas à la taille des datas indiqué + les 5o de l'entête
-        (* bytes_read) = 5;
+    (* bytes_read) = 5;
+    if(data_size < 0){
+        perror("ERROR : Data's block size < 0 \n");
+        return NULL;
+    }
+    if((u_int32_t)data_size > buffer_size - 5){ // Cast OK, because we checked that data_size>0
+        perror("ERROR : buffer_size - 5 < data_size \n");
         return NULL;
     }
     i += 4; // i = 5
-    (* bytes_read) = i;
-    uint8_t *data;
-    if(buffer_size - 5 == 1){ // si on doit lire un pixel GS
-        data = malloc(sizeof(pixel_grayscale_t));
-        if(data == NULL){
-            return NULL;
-        }
-        * ((pixel_grayscale_t *)data) = buffer[i];
-        i += 1; // i = 6
-    } else if (buffer_size - 5 == 3){ // si on doit lire un pixel RGB
-        data = malloc(sizeof(pixel_rgb_t));
-        if(data == NULL){
-            return NULL;
-        }
-        ((pixel_rgb_t *)data) -> red = buffer[i]; //5ème octet
-        ((pixel_rgb_t *)data) -> green = buffer[i+1]; //6ème
-        ((pixel_rgb_t *)data) -> blue = buffer[i+2]; //7ème
-        i += 3; // i = 6
-    } else { // une taille de datas qui ne correspond à rien
-        return NULL;
-    }
-    (* bytes_read) = i;
-    if (buffer_size != (* bytes_read)){ // On doit avoir tout lu normalement
-      return NULL;
-    }
+
     stif_block_t * res = malloc(sizeof(stif_block_t));
     if(res == NULL){
-        free(data);
+        perror("ERROR : malloc de res à échoué\n");
         return NULL;
     }
+    uint8_t *data = malloc(data_size);
+    if(data == NULL){
+        perror("ERROR : malloc de Datas à échoué\n");
+        free(res);
+        return NULL;
+    }
+    // Pour toutes les datas du buffer, on les ajoute  aux datas
+    for(; i < data_size + 5; i ++){
+        *(data + i - 5) = buffer[i];
+    }
+    (* bytes_read) = i; // Voir si il faut pas le mettre dans le for, au cas où ça plante
     res -> block_type = 1;
-    res -> block_size = buffer_size - 5;
+    res -> block_size = data_size;
     res -> data = data;
+    res -> next = NULL;
     return res;
 }
 
 stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
-    #if DEBUG == 1
-    printf("D : >> Entering parse_stif\n");
+    #if VERBOSE == 1
+    printf("V : >> Entering parse_stif\n");
     #endif
     // PARSE MAGIC NUMBER : CA FE
     if(buffer_size < 22){ /* 22 = PLUS PETITE IMAGE POSSIBLE = 2o (magic) + 5o (header_block) + 9o (block head) + 5(header_block) + 1(block_gray_scale)*/
+        perror("ERROR : >> buffer_size < 22\n");
         return NULL;
     }
-    #if DEBUG == 1
-    printf("D : >> buffer_size > 22\n %X %X %X %X %X %X %X %X\n",buffer[0],buffer[1],buffer[2],buffer[3],buffer[4],buffer[5],buffer[6],buffer[7]);
-    #endif
-    if(buffer[0] != 0xCA || buffer[1] != 0xFE ){ // Si on a pas CA ou si on a pas FE
+    if( * ((u_int16_t *)buffer) != STIF_MAGIC ){
+        perror("ERROR : >> MAGIC != 0x CAFE\n");
         return NULL;
     }
-    #if DEBUG == 1
-    printf("D : >> Magic number CAFE parsed\n");
-    #endif
-    u_int i = 2; // index du buffer
+    u_int32_t i = 2; // index du buffer
 // >>> READ LE BLOC HEADER <<<
-
     // >> head du block header <<
     if(buffer[i] != 0){ // Si ce n'est pas un type HEADER
+        perror("ERROR : >> First block != HEADER \n");
         return NULL;
     }
     i ++; // i=3
-    if( _btoi(buffer + i) != STIF_BLOCK_HEADER_SIZE){ // On attend un block HEADER la taille est forcément de 9
+    if( * ( (int32_t *)(buffer + i) ) != STIF_BLOCK_HEADER_SIZE){ // On attend un block HEADER la taille est forcément de 9
+        perror("ERROR : >> First block size != STIF_BLOCK_HEADER_SIZE \n");
         return NULL;
     }
     i += 4; // i=7
 
     // >> vérif du contenu du block header <<
-    if( _btoi(buffer + i) < 0 ){ // check Width positive
+    if( _btoi(buffer + i) <= 0 ){
+        perror("ERROR : >> WIDTH <= 0 \n");
         return NULL;
     }
-    if( _btoi(buffer + i + 4) < 0 ){ // check Height positive
+    if( _btoi(buffer + i + 4) <= 0 ){
+        perror("ERROR : >> HEIGHT <= 0 \n");
         return NULL;
     }
     if(buffer[i+8] != 0 && buffer[i+8] != 1 ){ // check type d'image == (rgb || grayscale)
+        perror("ERROR : >>  Image color_type diff de rgb et de gs \n");
         return NULL;
     }
-    // L'expression correspond au color_type. Si on est en rgb alors les pixels feront 8o (5o header + 3o data_rgb), autrement ils feront 5 px (5o header + 1o data_gs)
-    size_t pixel_block_size = buffer[i+8] ? (5 + 3) : (5 + 1); // Si on a color_type (==1) alors on a du rgb, donc chaque futur bloc fera 5o(header)+3o(rgb). sinon 5o(header)+1o(gs)
+    size_t pixel_block_size = buffer[i+8] ? 3 : 1; // Si on a color_type (==1) alors on a du rgb, donc chaque data fait 3o. En gs on a un pixel de 1o
     /* On passe le HEADER (9o) et i , et on vérifie que le nombre d'octet restant est modulo la taille suposée des blocks de pixels.
        e.g. si buffer_size - i - 9 == 32, alors on peut caser 4 pixels si on est en rgb car 32%8 == 0.
        Mais si on est en mode gs , on peut caser que 5.33 pixels, car 32%6 == 2
-    */
+
     if( ((buffer_size - i - 9) % pixel_block_size) != 0){
         return NULL;
-    }
+    }*/
+
+
     // header correct, on peut initialiser l'image
     stif_header_t header;
     header.width = _btoi(buffer + i); // Lecture width
@@ -152,44 +152,53 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     int8_t color_type = buffer[i+8]; // ...color_type
     header.color_type = color_type;
     i += 9; // i=16, les 9 octets des datas du bloc head
+    if(buffer_size < 5 + 9 + 5 + header.width * header.height * pixel_block_size){
+        perror("ERROR : >> Le Buffer ne peut pas acceuillir autant de pixels qu'il est indiqué par la width, la height et le color type \n");
+        return NULL;
+    }
 
     // On a fait la vérif qu'il y avait des datas blocks après, on commence donc à les allouer
     stif_t * res = malloc(sizeof(stif_t));
     if(res == NULL){ // problème pour allouer de la mem
-      return NULL;
+        perror("ERROR : >> Malloc pour la stif_s est NULL \n");
+        return NULL;
     }
-    /*
-    stif_block_t *current_data_block = malloc(sizeof(stif_block_t));
-    if(current_data_block == NULL){
-      free(header);
-      free(res);
-      return NULL;
-    }*/
+    u_int8_t * pixels = malloc(header.width*header.height*pixel_block_size);
     res -> header = header;
-    res -> grayscale_pixels = NULL;
-    res -> rgb_pixels = NULL;
-    res -> block_head = NULL; //TODO ne pas oublier de link la chaine
+    res -> grayscale_pixels = pixel_block_size == 1 ? pixels : NULL;
+    res -> rgb_pixels = pixel_block_size == 3 ? (pixel_rgb_t *)pixels : NULL;
+    res -> block_head = NULL;
+
+    if(pixels == NULL){
+        perror("ERROR : >> Malloc pour pixels est NULL \n");
+        stif_free(res); // free res and pixels
+        return NULL;
+    }
+    size_t pixel_i = 0;
 
 //  >>> READ BLOCKS DATA <<<
-
     size_t bytes_read;
     stif_block_t **next_block_pt = &(res -> block_head); // Variable contenant le pointeur où l'on devra renseigner l'adresse du prochain block
     stif_block_t * new_block;
     while(buffer_size - i > 0){ // Tant qu'il reste des choses à lire
-        if(buffer_size - i < pixel_block_size){ // TOTALLY UNEXPECTED. Normalement la taille de la struct sans la head compte n*pixel_block_size, donc on est censé avancer de pixel_block_size à chaque fois.
+        new_block = read_stif_block(buffer + i,  buffer_size - i, &bytes_read);
+        if(new_block == NULL){
+            perror("ERROR : >> Echec du read du Bloc DATA. Valeur de retour nulle\n");
             stif_free(res);
             return NULL;
-        }
-        new_block = read_stif_block_data(buffer + i,  pixel_block_size, &bytes_read);
-        if(new_block == NULL){
-          stif_free(res);
-          return NULL;
         }
         (* next_block_pt) = new_block;        //On vient lier l'addresse de next, sur le block précédent
         next_block_pt = &(new_block -> next); // On sauvegarde l'addresse où l'on devra greffer le prochain block
         i += bytes_read;
+        for(size_t j = 0; j < bytes_read - 5 ; j++){ // bytes_read - 5 car on skip les 5 premiers octets qui étaient la head
+            pixels[pixel_i] = new_block -> data[j];
+            pixel_i ++;
+        }
     }
+    #if VERBOSE == 1
+    printf("V : >> Exiting parse_stif\n");
+    #endif
 
-
-    return NULL;
+    // TODO dernière vérif ?
+    return res;
 }

@@ -81,7 +81,7 @@ void stif_free(stif_t *s);
  *
  * \return the newly allocated block (to be freed with stif_block_free) or NULL on error
  */
-stif_block_t *read_stif_block_data(const unsigned char *buffer, size_t buffer_size, size_t *bytes_read);
+stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, size_t *bytes_read);
 
 /*!
  * \brief Free a stif block

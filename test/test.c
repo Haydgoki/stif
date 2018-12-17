@@ -1,36 +1,37 @@
-#include <stdio.h>
+#include <check.h>
 #include <stdlib.h>
+#include "../include/stif.h"
 
-int ft(char * buf){
-    /*int *pt = (int *)buf;
-    int i = *pt;*/
-    return ((int32_t *)buf)[0];
+START_TEST(read_stif_block_buffer_null){
+    stif_block_t *block = NULL;
+    size_t size = 20;
+    block = read_stif_block(NULL, 10, &size);
+    ck_assert(block == NULL);
+}
+END_TEST
+
+static Suite *parse_suite(void)
+{
+    Suite *s;
+    TCase *tc_read_stif;
+    s = suite_create("stif");
+    tc_read_stif = tcase_create("read_stif");
+    tcase_add_test(tc_read_stif, read_stif_block_buffer_null);
+    suite_add_tcase(s, tc_read_stif);
+
+    return s;
 }
 
-int32_t _btoi(char* b){int32_t res = b[0]<<24 | b[1]<<16 | b[2]<<8 | b[3]; return res;}
+int main(void) {
+    int no_failed = 0;
+    Suite *s;
+    SRunner *runner;
 
-int main(int argc, char *argv[])
-{
-    char buffer[20] = {1,0,0,0,2,0,0,0};
+    s = parse_suite();
+    runner = srunner_create(s);
 
-    printf("%d\n", ft(buffer + 4));
-    printf("%d\n", _btoi(buffer + 4));
-
-    if (buffer[0] == 1)
-      printf("OK\n");
-
-    int i;
-    i = buffer[0] ? 1 : 0;
-    printf("%d\n", i);
-
-    int *pt_i;
-    pt_i = &i;
-    printf("%d\n", (*pt_i));
-
-
-    u_int8_t j= 12;
-    int8_t k=13;
-    printf("%d\n", j<k);
-
-    return 0;
+    srunner_run_all(runner, CK_NORMAL);
+    no_failed = srunner_ntests_failed(runner);
+    srunner_free(runner);
+    return (no_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
