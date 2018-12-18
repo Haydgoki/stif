@@ -65,6 +65,9 @@ typedef struct stif_s
 	stif_block_t      *block_head;
 } stif_t;
 
+
+//int32_t _btoi(const unsigned char* b);
+
 /*!
  * \brief Free a stif structure
  *

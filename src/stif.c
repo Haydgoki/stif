@@ -48,20 +48,24 @@ stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, s
     #if VERBOSE == 1
     printf("V : >> Entering read_stif_block\n");
     #endif
+    if(buffer == NULL){
+        perror("ERROR : Buffer pointer is null\n");
+        return NULL;
+    }
     // >> READ DATA'S BLOCK HEADER <<
     (* bytes_read) = 0;
     if(buffer_size<5){
         perror("ERROR : Moins de 5 octets dans le BUFFER pour un nouveau block de datas\n");
         return NULL;
     }
+    (* bytes_read) = 1;
     if(buffer[0] != 1){ // On s'attend forcément à un type data
-        (* bytes_read) = 1;
         fprintf(stderr, "ERROR : BlockTypeERROR : Nouveau block type != DATA %x\n", buffer[0]);
         return NULL;
     }
+    (* bytes_read) = 5;
     int32_t i = 1;
     int32_t data_size = _btoi(buffer + i);
-    (* bytes_read) = 5;
     if(data_size < 0){
         perror("ERROR : Data's block size < 0 \n");
         return NULL;
@@ -99,6 +103,12 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     #if VERBOSE == 1
     printf("V : >> Entering parse_stif\n");
     #endif
+    if(buffer == NULL){
+        perror("ERROR : >> Buffer pointer is NULL\n");
+        return NULL;
+    }
+
+
     // PARSE MAGIC NUMBER : CA FE
     if(buffer_size < 22){ /* 22 = PLUS PETITE IMAGE POSSIBLE = 2o (magic) + 5o (header_block) + 9o (block head) + 5(header_block) + 1(block_gray_scale)*/
         perror("ERROR : >> buffer_size < 22\n");

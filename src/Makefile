@@ -11,12 +11,16 @@ include ${COMMON}
 
 CFLAGS += -I${BASE}/include
 
+
+CFLAGS += --coverage -O0  # rajouté pour le cov
+LDFLAGS += -fprofile-arcs -ftest-coverage  # rajouté pour le cov
+
 all: ${OBJ}
 
 ${OBJDIR}/%.o: %.c ${HDR} ${COMMON}
 	@mkdir -p ${OBJDIR}
 	@echo "[*] Building $@"
-	${CC} -o $@ -c $< ${CFLAGS}
+	${CC} -o $@ -c $< ${CFLAGS} ${LDFLAGS}
 
 clean:
 	@echo "[*] Cleaning"

@@ -5,6 +5,8 @@ SUBDIR = src regress
 OBJDIR = obj
 BINDIR = bin
 
+export
+
 all:
 	@for dir in ${SUBDIR} ; do \
 		echo "[*] Building subdir $$dir" ; \
