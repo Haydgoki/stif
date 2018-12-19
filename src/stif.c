@@ -162,7 +162,7 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     int8_t color_type = buffer[i+8]; // ...color_type
     header.color_type = color_type;
     i += 9; // i=16, les 9 octets des datas du bloc head
-    if(buffer_size < 5 + 9 + 5 + header.width * header.height * pixel_block_size){
+    if(buffer_size < ( 2 + 5 + 9 + 5 + ( header.width * header.height * pixel_block_size )) ){ // taille minimum avec 1 seul block de datas
         perror("ERROR : >> Le Buffer ne peut pas acceuillir autant de pixels qu'il est indiqué par la width, la height et le color type \n");
         return NULL;
     }
@@ -191,6 +191,7 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
     stif_block_t **next_block_pt = &(res -> block_head); // Variable contenant le pointeur où l'on devra renseigner l'adresse du prochain block
     stif_block_t * new_block;
     while(buffer_size - i > 0){ // Tant qu'il reste des choses à lire
+
         new_block = read_stif_block(buffer + i,  buffer_size - i, &bytes_read);
         if(new_block == NULL){
             perror("ERROR : >> Echec du read du Bloc DATA. Valeur de retour nulle\n");
