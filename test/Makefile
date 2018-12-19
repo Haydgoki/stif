@@ -15,9 +15,9 @@ include ${COMMON}
 
 
 #CFLAGS += --coverage -O0  # rajouté pour le cov
-LDFLAGS += -fprofile-arcs -ftest-coverage
+# LDFLAGS += -fprofile-arcs -ftest-coverage  # rajouté pour le cov
 
-#CFLAGS  += -I${BASE}/include # rajouté pour le cov
+CFLAGS  += -I${BASE}/include
 LDFLAGS += -lcheck
 
 

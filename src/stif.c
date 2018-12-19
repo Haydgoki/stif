@@ -205,6 +205,12 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
             pixel_i ++;
         }
     }
+    // On vérifie qu'on a lu tous les pixels
+    if(pixel_i != header.width*header.height*pixel_block_size){
+        stif_free(res); // free res and pixels
+        return NULL;
+    }
+
     #if VERBOSE == 1
     printf("V : >> Exiting parse_stif\n");
     #endif

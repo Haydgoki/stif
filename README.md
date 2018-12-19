@@ -17,3 +17,10 @@ Ce projet consiste à implémenter un paser d'image de format STIF. Le but est d
 ## Tests
 
 ## Présentation des solutions
+
+
+
+amélios :
+
+* mettre des types unsigned pour les size dans les struct
+* Retourner des codes d'erreur dans les ft au lieu d'une structure. Et mettre en param un pointeur vers la structure que l'on veut ou inversement 
