@@ -60,7 +60,7 @@ stif_block_t *read_stif_block(const unsigned char *buffer, size_t buffer_size, s
     }
     (* bytes_read) = 1;
     if(buffer[0] != 1){ // On s'attend forcément à un type data
-        fprintf(stderr, "ERROR : BlockTypeERROR : Nouveau block type != DATA %x\n", buffer[0]);
+        perror("ERROR : BlockTypeERROR : Nouveau block type != DATA \n");
         return NULL;
     }
     (* bytes_read) = 5;
@@ -146,14 +146,6 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
         return NULL;
     }
     size_t pixel_block_size = buffer[i+8] ? 3 : 1; // Si on a color_type (==1) alors on a du rgb, donc chaque data fait 3o. En gs on a un pixel de 1o
-    /* On passe le HEADER (9o) et i , et on vérifie que le nombre d'octet restant est modulo la taille suposée des blocks de pixels.
-       e.g. si buffer_size - i - 9 == 32, alors on peut caser 4 pixels si on est en rgb car 32%8 == 0.
-       Mais si on est en mode gs , on peut caser que 5.33 pixels, car 32%6 == 2
-
-    if( ((buffer_size - i - 9) % pixel_block_size) != 0){
-        return NULL;
-    }*/
-
 
     // header correct, on peut initialiser l'image
     stif_header_t header;
@@ -188,6 +180,7 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
 
 //  >>> READ BLOCKS DATA <<<
     size_t bytes_read;
+    size_t max_pixels = header.width*header.height*pixel_block_size;
     stif_block_t **next_block_pt = &(res -> block_head); // Variable contenant le pointeur où l'on devra renseigner l'adresse du prochain block
     stif_block_t * new_block;
     while(buffer_size - i > 0){ // Tant qu'il reste des choses à lire
@@ -202,6 +195,10 @@ stif_t *parse_stif(const unsigned char *buffer, size_t buffer_size){
         next_block_pt = &(new_block -> next); // On sauvegarde l'addresse où l'on devra greffer le prochain block
         i += bytes_read;
         for(size_t j = 0; j < bytes_read - 5 ; j++){ // bytes_read - 5 car on skip les 5 premiers octets qui étaient la head
+            if(pixel_i > max_pixels){
+                stif_free(res); // free res and pixels
+                return NULL;
+            }
             pixels[pixel_i] = new_block -> data[j];
             pixel_i ++;
         }
